@@ -27,6 +27,9 @@ class ViewController: UIViewController {
         HAOAuthorizationUtils.requestMicphoneAuthorization { (granted) in
             print("Micphone \(granted ? "granted" : "not granted")")
         }
+        HAOAuthorizationUtils.requestPhotoLibraryAuthorization { (granted) in
+            print("Photo Library \(granted ? "granted" : "not granted")")
+        }
     }
 }
 
