@@ -19,6 +19,14 @@ class ViewController: UIViewController {
         self.view.addSubview(label)
     }
 
-
+    override func viewDidAppear(_ animated: Bool) {
+        HAOAuthorizationUtils.requestCameraAuthorization { (granted) in
+            print("Camera \(granted ? "granted" : "not granted")")
+        }
+        
+        HAOAuthorizationUtils.requestMicphoneAuthorization { (granted) in
+            print("Micphone \(granted ? "granted" : "not granted")")
+        }
+    }
 }
 
