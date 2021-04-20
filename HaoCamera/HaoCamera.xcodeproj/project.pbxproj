@@ -3,10 +3,12 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 52;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E906C9FF253DE28300A1D40F /* HAOCamera.swift in Sources */ = {isa = PBXBuildFile; fileRef = E906C9FE253DE28300A1D40F /* HAOCamera.swift */; };
+		E96E40AF2568AC8C0057AF0F /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = E96E40AE2568AC8C0057AF0F /* SnapKit */; };
 		E983A938253D610B00F1872C /* HAOAuthorizationUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = E983A937253D610B00F1872C /* HAOAuthorizationUtils.swift */; };
 		E98981D7253D0E8B002FC5A9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E98981D6253D0E8B002FC5A9 /* AppDelegate.swift */; };
 		E98981D9253D0E8B002FC5A9 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E98981D8253D0E8B002FC5A9 /* SceneDelegate.swift */; };
@@ -17,6 +19,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		E906C9FE253DE28300A1D40F /* HAOCamera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HAOCamera.swift; sourceTree = "<group>"; };
 		E983A937253D610B00F1872C /* HAOAuthorizationUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HAOAuthorizationUtils.swift; sourceTree = "<group>"; };
 		E98981D3253D0E8B002FC5A9 /* HaoCamera.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HaoCamera.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E98981D6253D0E8B002FC5A9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -33,6 +36,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E96E40AF2568AC8C0057AF0F /* SnapKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -66,6 +70,7 @@
 				E98981E1253D0E8B002FC5A9 /* LaunchScreen.storyboard */,
 				E98981E4253D0E8B002FC5A9 /* Info.plist */,
 				E983A937253D610B00F1872C /* HAOAuthorizationUtils.swift */,
+				E906C9FE253DE28300A1D40F /* HAOCamera.swift */,
 			);
 			path = HaoCamera;
 			sourceTree = "<group>";
@@ -86,6 +91,9 @@
 			dependencies = (
 			);
 			name = HaoCamera;
+			packageProductDependencies = (
+				E96E40AE2568AC8C0057AF0F /* SnapKit */,
+			);
 			productName = HaoCamera;
 			productReference = E98981D3253D0E8B002FC5A9 /* HaoCamera.app */;
 			productType = "com.apple.product-type.application";
@@ -113,6 +121,9 @@
 				Base,
 			);
 			mainGroup = E98981CA253D0E8B002FC5A9;
+			packageReferences = (
+				E96E40AD2568AC8C0057AF0F /* XCRemoteSwiftPackageReference "SnapKit" */,
+			);
 			productRefGroup = E98981D4253D0E8B002FC5A9 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -140,6 +151,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E906C9FF253DE28300A1D40F /* HAOCamera.swift in Sources */,
 				E983A938253D610B00F1872C /* HAOAuthorizationUtils.swift in Sources */,
 				E98981DB253D0E8B002FC5A9 /* ViewController.swift in Sources */,
 				E98981D7253D0E8B002FC5A9 /* AppDelegate.swift in Sources */,
@@ -351,6 +363,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E96E40AD2568AC8C0057AF0F /* XCRemoteSwiftPackageReference "SnapKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SnapKit/SnapKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.0.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E96E40AE2568AC8C0057AF0F /* SnapKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E96E40AD2568AC8C0057AF0F /* XCRemoteSwiftPackageReference "SnapKit" */;
+			productName = SnapKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E98981CB253D0E8B002FC5A9 /* Project object */;
 }
