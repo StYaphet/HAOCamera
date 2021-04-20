@@ -58,7 +58,21 @@ class HAOCamera {
 
         captureSession.commitConfiguration()
     }
+}
 
+// MARK: Swap Camera Position
+extension HAOCamera {
+    /// 切换到摄像头位置
+    func swapCameraPosition() {
+        if self.currentCameraPosition == .back {
+            self.changeToFrontCameraInput()
+        } else if self.currentCameraPosition == .front {
+            self.changeToBackCameraInput()
+        }
+    }
+
+
+    /// 切换到后置摄像头
     func changeToBackCameraInput() {
         captureSession.beginConfiguration()
 
@@ -81,6 +95,7 @@ class HAOCamera {
         captureSession.commitConfiguration()
     }
 
+    /// 切换到后置摄像头
     func changeToFrontCameraInput() {
         captureSession.beginConfiguration()
 
@@ -103,19 +118,17 @@ class HAOCamera {
         self.currentCameraPosition = .front
         captureSession.commitConfiguration()
     }
+}
 
-    func swapCameraPosition() {
-        if self.currentCameraPosition == .back {
-            self.changeToFrontCameraInput()
-        } else if self.currentCameraPosition == .front {
-            self.changeToBackCameraInput()
-        }
-    }
+// MARK: Capture
+extension HAOCamera {
 
+    /// 开始摄像头画面采集
     func startCapture() {
         self.captureSession.startRunning()
     }
 
+    /// 关闭摄像头画面采集
     func stopCapture() {
         self.captureSession.stopRunning()
     }
