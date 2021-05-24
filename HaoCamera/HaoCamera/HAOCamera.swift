@@ -8,6 +8,17 @@
 import UIKit
 import AVFoundation
 class HAOCamera {
+
+    enum CameraConfigError: Error {
+        case canNotAddInput
+        case canNotAddOutput
+    }
+
+    enum CameraMode {
+        case video
+        case photo
+    }
+
     private var captureSession : AVCaptureSession!
     var currentCameraPosition : AVCaptureDevice.Position
     var currentVideoInput: AVCaptureInput?
@@ -16,14 +27,16 @@ class HAOCamera {
         return self.captureSession.isRunning
     }
 
-    enum CameraConfigError: Error {
-        case canNotAddInput
-        case canNotAddOutput
-    }
+    var cameraConfig: CameraConfig = CameraConfig()
+
+    var cameraMode: CameraMode
+
+
 
     init() {
         captureSession = AVCaptureSession.init()
         currentCameraPosition = .back
+        cameraMode = .photo
     }
 
     func setupCaptureSession(with containerView: UIView) throws {
@@ -47,7 +60,7 @@ class HAOCamera {
 
         let photoOutput = AVCapturePhotoOutput()
         guard captureSession.canAddOutput(photoOutput) else { return }
-        captureSession.sessionPreset = .photo
+        captureSession.sessionPreset = cameraConfig.photoPreset
         captureSession.addOutput(photoOutput)
 
         self.cameraPreviewView.videoPreviewLayer.session = captureSession
@@ -132,6 +145,10 @@ extension HAOCamera {
     func stopCapture() {
         self.captureSession.stopRunning()
     }
+}
+
+extension HAOCamera {
+
 }
 
 class HAOCameraPreviewView: UIView {

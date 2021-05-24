@@ -27,7 +27,7 @@
                                     <constraint firstAttribute="height" constant="44" id="3k5-Ts-B7d"/>
                                 </constraints>
                                 <fontDescription key="fontDescription" type="system" pointSize="18"/>
-                                <state key="normal" image="arrow.2.circlepath" catalog="system"/>
+                                <state key="normal" image="arrow.triangle.2.circlepath" catalog="system"/>
                                 <connections>
                                     <action selector="swapButtonClicked:" destination="BYZ-38-t0r" eventType="touchUpInside" id="vqg-zG-eaL"/>
                                 </connections>
@@ -65,7 +65,7 @@
         </scene>
     </scenes>
     <resources>
-        <image name="arrow.2.circlepath" catalog="system" width="128" height="101"/>
+        <image name="arrow.triangle.2.circlepath" catalog="system" width="128" height="101"/>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
