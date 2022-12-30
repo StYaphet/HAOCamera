@@ -31,6 +31,8 @@ class HAOCamera {
 
     var cameraMode: CameraMode
 
+    // 需要一个操作 camera 的队列
+    var cameraOperationQueue = DispatchQueue(label: "com.pandada.HAOCameraOperationQueue")
 
 
     init() {
@@ -40,7 +42,9 @@ class HAOCamera {
     }
 
     func setupCaptureSession(with containerView: UIView) throws {
-
+        defer {
+            captureSession.commitConfiguration()
+        }
         captureSession.beginConfiguration()
 
         if self.currentCameraPosition == .front {
@@ -68,8 +72,6 @@ class HAOCamera {
         self.cameraPreviewView.removeFromSuperview()
         self.cameraPreviewView.frame = containerView.bounds
         containerView.addSubview(self.cameraPreviewView)
-
-        captureSession.commitConfiguration()
     }
 }
 
@@ -88,48 +90,44 @@ extension HAOCamera {
     /// 切换到后置摄像头
     func changeToBackCameraInput() {
         captureSession.beginConfiguration()
-
+        defer {
+            captureSession.commitConfiguration()
+        }
         if let videoInput = self.currentVideoInput {
             self.captureSession.removeInput(videoInput)
         }
-
-        let backVideoDevice = AVCaptureDevice.default(.builtInDualCamera,
-                                                      for: .video,
-                                                      position: .back)
-        guard let backVideoDeviceInput = try?
-                AVCaptureDeviceInput(device: backVideoDevice!),
-              captureSession.canAddInput(backVideoDeviceInput)
-        else {
-            return
-        }
+        self.currentCameraPosition = .back
+        let deviceDiscoverySession = AVCaptureDevice.DiscoverySession.init(deviceTypes: cameraConfig.preferredBackCamera,
+                                                                           mediaType: .video,
+                                                                           position: .back)
+        guard let firstDevice: AVCaptureDevice = deviceDiscoverySession.devices.first else { return }
+        guard let backVideoDeviceInput =
+                try? AVCaptureDeviceInput(device: firstDevice),
+              captureSession.canAddInput(backVideoDeviceInput) else { return }
         captureSession.addInput(backVideoDeviceInput)
         self.currentVideoInput = backVideoDeviceInput
-        self.currentCameraPosition = .back
-        captureSession.commitConfiguration()
     }
 
     /// 切换到后置摄像头
     func changeToFrontCameraInput() {
+        defer {
+            captureSession.commitConfiguration()
+        }
         captureSession.beginConfiguration()
 
         if let videoInput = self.currentVideoInput {
             self.captureSession.removeInput(videoInput)
         }
-
-        let frontVideoDevice = AVCaptureDevice.default(.builtInWideAngleCamera,
-                                                       for: .video,
-                                                       position: .front)
-
-        guard let frontVideoDeviceInput = try?
-                AVCaptureDeviceInput(device: frontVideoDevice!),
-              captureSession.canAddInput(frontVideoDeviceInput)
-        else {
-            return
-        }
+        self.currentCameraPosition = .front
+        let deviceDiscoverySession = AVCaptureDevice.DiscoverySession.init(deviceTypes: cameraConfig.preferredFrontCamera,
+                                                                           mediaType: .video,
+                                                                           position: .front)
+        guard let firstDevice: AVCaptureDevice = deviceDiscoverySession.devices.first else { return }
+        guard let frontVideoDeviceInput =
+                try? AVCaptureDeviceInput(device: firstDevice),
+              captureSession.canAddInput(frontVideoDeviceInput) else { return }
         captureSession.addInput(frontVideoDeviceInput)
         self.currentVideoInput = frontVideoDeviceInput
-        self.currentCameraPosition = .front
-        captureSession.commitConfiguration()
     }
 }
 
@@ -138,12 +136,16 @@ extension HAOCamera {
 
     /// 开始摄像头画面采集
     func startCapture() {
-        self.captureSession.startRunning()
+        self.cameraOperationQueue.async() {
+            self.captureSession.startRunning()
+        }
     }
 
     /// 关闭摄像头画面采集
     func stopCapture() {
-        self.captureSession.stopRunning()
+        self.cameraOperationQueue.async {
+            self.captureSession.stopRunning()
+        }
     }
 }
 

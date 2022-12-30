@@ -11,6 +11,14 @@ import Photos
 
 struct HAOAuthorizationUtils {
     
+    static var cameraAuthorized: Bool {
+        return authorizedStatus(for: .video) == .authorized
+    }
+    
+    static var microphoneAuthorized: Bool {
+        return authorizedStatus(for: .audio) == .authorized
+    }
+    
     static func requestCameraAuthorization(callback:@escaping (Bool) -> Void) {
         self.requestAuthorization(for: .video, with: callback)
     }
@@ -52,6 +60,10 @@ struct HAOAuthorizationUtils {
         @unknown default:
             fatalError()
         }
+    }
+    
+    private static func authorizedStatus(for type: AVMediaType) -> AVAuthorizationStatus {
+        return AVCaptureDevice.authorizationStatus(for: type)
     }
 }
 

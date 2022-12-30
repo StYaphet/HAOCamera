@@ -38,22 +38,73 @@ class ViewController: UIViewController {
     }
 
     override func viewDidAppear(_ animated: Bool) {
-        HAOAuthorizationUtils.requestCameraAuthorization { (granted) in
-            print("Camera \(granted ? "granted" : "not granted")")
+        // 首先检查是否授权
+        // 如果已经授权，创建 camera 并开启采集
+        if HAOAuthorizationUtils.cameraAuthorized && HAOAuthorizationUtils.microphoneAuthorized {
+            if createCameraIfHadAuthorized() {
+                self.tryStartCameraCapture()
+            }
+        } else { // 如果没有授权
+            // 申请相机权限
+            //   如果是未授权状态，申请权限
+            HAOAuthorizationUtils.requestCameraAuthorization { [weak self] (granted) in
+                guard let self else { return }
+                guard granted else { // 如果没有授权，弹 toast 让用户去设置页去进行授权
+                    self.jumpToSystemSettingsAppToGiveAuthorization()
+                    return
+                }
+                if self.createCameraIfHadAuthorized() { // 尝试创建相机
+                    self.tryStartCameraCapture() // 尝试开启采集
+                }
+            }
+            // 申请麦克风权限
+            HAOAuthorizationUtils.requestMicphoneAuthorization { [weak self] (granted) in
+                guard let self else { return }
+                guard granted else { // 如果没有授权，弹 toast 让用户去设置页去进行授权
+                    self.jumpToSystemSettingsAppToGiveAuthorization()
+                    return
+                }
+                if self.createCameraIfHadAuthorized() { // 尝试创建相机
+                    self.tryStartCameraCapture()
+                }
+            }
         }
-        
-        HAOAuthorizationUtils.requestMicphoneAuthorization { (granted) in
-            print("Micphone \(granted ? "granted" : "not granted")")
+    }
+    
+    private func jumpToSystemSettingsAppToGiveAuthorization () {
+        let alert = UIAlertController(title: "去给相机、麦克风授权吧~",
+                                      message: nil,
+                                      preferredStyle: .alert)
+        let confirmAction = UIAlertAction(title: "走着", style:.default) { _ in
+            guard let settingsURL = URL(string:UIApplication.openSettingsURLString) else { return }
+            guard UIApplication.shared.canOpenURL(settingsURL) else { return }
+            UIApplication.shared.open(settingsURL)
         }
-        HAOAuthorizationUtils.requestPhotoLibraryAuthorization { (granted) in
-            print("Photo Library \(granted ? "granted" : "not granted")")
+        let cancelAction = UIAlertAction(title: "还是算了", style: .destructive)
+        alert.addAction(cancelAction)
+        alert.addAction(confirmAction)
+        self.present(alert, animated: true)
+    }
+    
+    private func createCameraIfHadAuthorized() -> Bool {
+        guard HAOAuthorizationUtils.cameraAuthorized,
+                HAOAuthorizationUtils.microphoneAuthorized else {
+            return false
         }
-
         cameraModel = HAOCamera()
         guard let cameraModel = self.cameraModel else {
-            return
+            return false
         }
-        try? cameraModel.setupCaptureSession(with: self.previewView)
+        do {
+            try cameraModel.setupCaptureSession(with: self.previewView)
+        } catch {
+            return false
+        }
+        return true
+    }
+    
+    private func tryStartCameraCapture() {
+        guard let cameraModel = self.cameraModel else { return }
         cameraModel.startCapture()
     }
 
@@ -64,7 +115,9 @@ class ViewController: UIViewController {
             AVCaptureDevice.DeviceType.builtInTelephotoCamera,
             AVCaptureDevice.DeviceType.builtInUltraWideCamera,
         ]
-        let discoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: deviceType, mediaType: .video, position: .front)
+        let discoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: deviceType,
+                                                                mediaType: .video,
+                                                                position: .front)
         return discoverySession.devices
     }
 }
