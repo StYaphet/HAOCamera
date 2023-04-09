@@ -7,7 +7,7 @@
 
 import UIKit
 import AVFoundation
-class HAOCamera {
+class Camera: NSObject {
 
     enum CameraConfigError: Error {
         case canNotAddInput
@@ -22,6 +22,10 @@ class HAOCamera {
     private var captureSession : AVCaptureSession!
     var currentCameraPosition : AVCaptureDevice.Position
     var currentVideoInput: AVCaptureInput?
+    var photoOutput: AVCapturePhotoOutput?
+    var photoHandlerMap = [Int64: PhotoOutputHander]()
+    var videoDataOutput: AVCaptureVideoDataOutput?
+    
     lazy var cameraPreviewView : HAOCameraPreviewView = HAOCameraPreviewView(frame: .zero)
     var isCapturing: Bool {
         return self.captureSession.isRunning
@@ -34,8 +38,7 @@ class HAOCamera {
     // 需要一个操作 camera 的队列
     var cameraOperationQueue = DispatchQueue(label: "com.pandada.HAOCameraOperationQueue")
 
-
-    init() {
+    override init() {
         captureSession = AVCaptureSession.init()
         currentCameraPosition = .back
         cameraMode = .photo
@@ -47,12 +50,15 @@ class HAOCamera {
         }
         captureSession.beginConfiguration()
 
+        // 1. 添加 input
+        //   1.1根据相机位置添加 video input
         if self.currentCameraPosition == .front {
             self.changeToFrontCameraInput()
         } else if self.currentCameraPosition == .back {
             self.changeToBackCameraInput()
         }
 
+        //   1.2添加 audio input
         let audioDevice = AVCaptureDevice.default(for: .audio)
         guard let audioDeviceInput = try?
                 AVCaptureDeviceInput(device: audioDevice!),
@@ -62,13 +68,17 @@ class HAOCamera {
         }
         captureSession.addInput(audioDeviceInput)
 
+        // 2. 添加 output
+        //   2.1 添加 photo output
         let photoOutput = AVCapturePhotoOutput()
         guard captureSession.canAddOutput(photoOutput) else { return }
         captureSession.sessionPreset = cameraConfig.photoPreset
         captureSession.addOutput(photoOutput)
+        self.photoOutput = photoOutput
+        
 
+        // 3. 设置预览视图
         self.cameraPreviewView.videoPreviewLayer.session = captureSession
-
         self.cameraPreviewView.removeFromSuperview()
         self.cameraPreviewView.frame = containerView.bounds
         containerView.addSubview(self.cameraPreviewView)
@@ -76,7 +86,7 @@ class HAOCamera {
 }
 
 // MARK: Swap Camera Position
-extension HAOCamera {
+extension Camera {
     /// 切换到摄像头位置
     func swapCameraPosition() {
         if self.currentCameraPosition == .back {
@@ -132,7 +142,7 @@ extension HAOCamera {
 }
 
 // MARK: Capture
-extension HAOCamera {
+extension Camera {
 
     /// 开始摄像头画面采集
     func startCapture() {
@@ -149,16 +159,64 @@ extension HAOCamera {
     }
 }
 
-extension HAOCamera {
-
+// MARK: Photo take
+extension Camera {
+    func takePicture(with photoSettings: AVCapturePhotoSettings, completion:@escaping (PhotoTakeResult) -> Void) {
+        guard let photoOutput = self.photoOutput else { return }
+        let photoOutputHandler = PhotoOutputHander { [weak self] handler, result in
+            guard let self else { return }
+            self.photoHandlerMap[photoSettings.uniqueID] = nil
+            completion(result)
+        }
+        photoHandlerMap[photoSettings.uniqueID] = photoOutputHandler
+        self.cameraOperationQueue.async {
+            photoOutput.capturePhoto(with: photoSettings,
+                                     delegate: photoOutputHandler)
+        }
+    }
 }
 
-class HAOCameraPreviewView: UIView {
-    override class var layerClass: AnyClass {
-        return AVCaptureVideoPreviewLayer.self
+extension Camera: AVCapturePhotoCaptureDelegate {
+    
+    // MARK: Monitoring Capture Progress
+    func photoOutput(_ output: AVCapturePhotoOutput,
+                     willBeginCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
+        print(output)
     }
-
-    var videoPreviewLayer: AVCaptureVideoPreviewLayer {
-        return layer as! AVCaptureVideoPreviewLayer
+    
+    func photoOutput(_ output: AVCapturePhotoOutput,
+                     willCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
+        print(output)
+    }
+    
+    func photoOutput(_ output: AVCapturePhotoOutput,
+                     didCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
+        print(output)
+    }
+    
+    func photoOutput(_ output: AVCapturePhotoOutput,
+                     didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        print(output)
+    }
+    
+    func photoOutput(_ output: AVCapturePhotoOutput,
+                     didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings,
+                     error: Error?) {
+        print(output)
+    }
+    
+    
+    func photoOutput(_ output: AVCapturePhotoOutput,
+                     didFinishProcessingLivePhotoToMovieFileAt outputFileURL: URL,
+                     duration: CMTime, photoDisplayTime: CMTime,
+                     resolvedSettings: AVCaptureResolvedPhotoSettings,
+                     error: Error?) {
+        print(output)
+    }
+    
+    func photoOutput(_ output: AVCapturePhotoOutput,
+                     didFinishRecordingLivePhotoMovieForEventualFileAt outputFileURL: URL,
+                     resolvedSettings: AVCaptureResolvedPhotoSettings) {
+        print(output)
     }
 }

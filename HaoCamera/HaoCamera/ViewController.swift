@@ -10,8 +10,14 @@ import AVFoundation
 import SnapKit
 
 class ViewController: UIViewController {
+    
+    override var prefersStatusBarHidden: Bool {
+        get {
+            return true
+        }
+    }
 
-    var cameraModel: HAOCamera?
+    var cameraModel: Camera?
 
     @IBOutlet weak var recordButton: UIButton!
     @IBOutlet weak var previewView: HAOCameraPreviewView!
@@ -21,16 +27,7 @@ class ViewController: UIViewController {
         self.cameraModel?.swapCameraPosition()
     }
     @IBAction func recordButtonClicked(_ sender: UIButton) {
-
-        guard let camera = self.cameraModel else {
-            return
-        }
-
-        if camera.isCapturing {
-            camera.stopCapture()
-        } else {
-            camera.startCapture()
-        }
+        takePicture()
     }
 
     override func viewDidLoad() {
@@ -40,14 +37,14 @@ class ViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         // 首先检查是否授权
         // 如果已经授权，创建 camera 并开启采集
-        if HAOAuthorizationUtils.cameraAuthorized && HAOAuthorizationUtils.microphoneAuthorized {
+        if AuthorizationUtils.cameraAuthorized && AuthorizationUtils.microphoneAuthorized {
             if createCameraIfHadAuthorized() {
                 self.tryStartCameraCapture()
             }
         } else { // 如果没有授权
             // 申请相机权限
             //   如果是未授权状态，申请权限
-            HAOAuthorizationUtils.requestCameraAuthorization { [weak self] (granted) in
+            AuthorizationUtils.requestCameraAuthorization { [weak self] (granted) in
                 guard let self else { return }
                 guard granted else { // 如果没有授权，弹 toast 让用户去设置页去进行授权
                     self.jumpToSystemSettingsAppToGiveAuthorization()
@@ -58,7 +55,7 @@ class ViewController: UIViewController {
                 }
             }
             // 申请麦克风权限
-            HAOAuthorizationUtils.requestMicphoneAuthorization { [weak self] (granted) in
+            AuthorizationUtils.requestMicphoneAuthorization { [weak self] (granted) in
                 guard let self else { return }
                 guard granted else { // 如果没有授权，弹 toast 让用户去设置页去进行授权
                     self.jumpToSystemSettingsAppToGiveAuthorization()
@@ -87,11 +84,11 @@ class ViewController: UIViewController {
     }
     
     private func createCameraIfHadAuthorized() -> Bool {
-        guard HAOAuthorizationUtils.cameraAuthorized,
-                HAOAuthorizationUtils.microphoneAuthorized else {
+        guard AuthorizationUtils.cameraAuthorized,
+                AuthorizationUtils.microphoneAuthorized else {
             return false
         }
-        cameraModel = HAOCamera()
+        cameraModel = Camera()
         guard let cameraModel = self.cameraModel else {
             return false
         }
@@ -122,3 +119,44 @@ class ViewController: UIViewController {
     }
 }
 
+
+extension ViewController {
+    private func takePicture() {
+        guard let camera = self.cameraModel else {
+            return
+        }
+        
+        // TODO: 因为暂时还没有添加其他的设置，所以这里暂时就直接创建一个默认的 PhotoSettings
+        let photoSettings = AVCapturePhotoSettings()
+        
+        camera.takePicture(with: photoSettings) {[weak self] result in
+            switch result {
+            case .success(let image, _):
+                guard let self else { return }
+                self.writeImageToDisk(image: image)
+            case .fail(let error):
+                print(error)
+            }
+        }
+    }
+    
+    private func writeImageToDisk(image: UIImage) {
+        guard let imageData = image.jpegData(compressionQuality: 1) else { return }
+        let nsImageData = NSData(data: imageData)
+        
+        guard let documentDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let imageDirectory = documentDirectory.appendingPathComponent("Images")
+        if !FileManager.default.fileExists(atPath: imageDirectory.absoluteString) {
+            do {
+                try FileManager.default.createDirectory(at: imageDirectory, withIntermediateDirectories: true)
+            } catch {
+                print(error)
+                return
+            }
+        }
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZZZZZ"
+        let imageFileName = dateFormatter.string(from: Date())
+        nsImageData.write(to: imageDirectory.appendingPathComponent("\(imageFileName).jpg"), atomically: true)
+    }
+}

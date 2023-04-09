@@ -1,5 +1,5 @@
 //
-//  HAOAuthorizationUtils.swift
+//  AuthorizationUtils.swift
 //  HaoCamera
 //
 //  Created by me55a on 2020/10/19.
@@ -9,7 +9,7 @@ import Foundation
 import AVFoundation
 import Photos
 
-struct HAOAuthorizationUtils {
+struct AuthorizationUtils {
     
     static var cameraAuthorized: Bool {
         return authorizedStatus(for: .video) == .authorized
