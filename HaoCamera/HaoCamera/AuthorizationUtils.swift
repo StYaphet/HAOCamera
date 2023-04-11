@@ -8,6 +8,7 @@
 import Foundation
 import AVFoundation
 import Photos
+import UIKit
 
 struct AuthorizationUtils {
     
@@ -49,7 +50,23 @@ struct AuthorizationUtils {
         }
     }
     
-    private static func requestAuthorization(for type: AVMediaType,with callback:@escaping (Bool) -> (Void)) {
+    static func getJumpToSystemSettingsAppToGiveAuthorizationAlert () -> UIAlertController {
+        let alert = UIAlertController(title: "去给相机、麦克风授权吧~",
+                                      message: nil,
+                                      preferredStyle: .alert)
+        let confirmAction = UIAlertAction(title: "走着", style:.default) { _ in
+            guard let settingsURL = URL(string:UIApplication.openSettingsURLString) else { return }
+            guard UIApplication.shared.canOpenURL(settingsURL) else { return }
+            UIApplication.shared.open(settingsURL)
+        }
+        let cancelAction = UIAlertAction(title: "还是算了", style: .destructive)
+        alert.addAction(cancelAction)
+        alert.addAction(confirmAction)
+        return alert
+    }
+    
+    private static func requestAuthorization(for type: AVMediaType,
+                                             with callback:@escaping (Bool) -> (Void)) {
         switch AVCaptureDevice.authorizationStatus(for: type) {
             case .authorized:
                 callback(true)
