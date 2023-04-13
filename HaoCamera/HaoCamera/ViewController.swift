@@ -34,6 +34,7 @@ class ViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         
         super.viewDidAppear(animated)
+        UIApplication.shared.isIdleTimerDisabled = true
         // 首先检查是否授权
         // 如果已经授权，创建 camera 并开启采集
         if AuthorizationUtils.cameraAuthorized && AuthorizationUtils.microphoneAuthorized {
@@ -70,6 +71,7 @@ class ViewController: UIViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         self.cameraModel?.stopCapture()
+        UIApplication.shared.isIdleTimerDisabled = false
     }
 }
 
