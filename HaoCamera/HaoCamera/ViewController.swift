@@ -17,6 +17,8 @@ class ViewController: UIViewController {
     @IBOutlet weak var previewView: HAOCameraPreviewView!
     @IBOutlet weak var swapButton: UIButton!
     
+    private var isRecording = false
+    
     override var prefersStatusBarHidden: Bool {
         get { return true }
     }
@@ -26,11 +28,13 @@ class ViewController: UIViewController {
 
     // MARK: - Life Cycle
     override func viewDidLoad() {
+        
         super.viewDidLoad()
         setupUI()
         addGestureRecognizers()
     }
 
+    
     override func viewDidAppear(_ animated: Bool) {
         
         super.viewDidAppear(animated)
@@ -68,7 +72,9 @@ class ViewController: UIViewController {
         }
     }
     
+    
     override func viewWillDisappear(_ animated: Bool) {
+        
         super.viewWillDisappear(animated)
         self.cameraModel?.stopCapture()
         UIApplication.shared.isIdleTimerDisabled = false
@@ -80,8 +86,12 @@ extension ViewController {
     
     private func setupUI() {
         
+//        self.recordButton.alpha = 0
+//        self.swapButton.alpha = 0
+//        self.previewView.alpha = 0
         self.recordButton.setTitle("Take Picture", for: .normal)
     }
+    
     
     private func addGestureRecognizers() {
         // Tap Gesture
@@ -95,13 +105,27 @@ extension ViewController {
 extension ViewController {
     
     @IBAction func swapButtonClicked(_ sender: UIButton) {
+        
         self.cameraModel?.swapCameraPosition()
     }
+    
+    
     @IBAction func recordButtonClicked(_ sender: UIButton) {
-        takePicture()
+        
+        if self.isRecording {
+            cameraModel?.stopRecording()
+            self.isRecording = false
+        } else {
+            cameraModel?.startVideoRecord()
+            self.isRecording = true
+        }
+//        takePicture()
     }
+    
+    
     @objc func handleTapGestureRecognizer(gesture: UITapGestureRecognizer) {
         
+//        takePicture()
     }
 }
 
@@ -127,12 +151,16 @@ extension ViewController {
         return true
     }
     
+    
     private func tryStartCameraCapture() {
+        
         guard let cameraModel = self.cameraModel else { return }
         cameraModel.startCapture()
     }
     
+    
     private func takePicture() {
+        
         guard let camera = self.cameraModel else {
             return
         }
@@ -157,30 +185,19 @@ extension ViewController {
 }
 
 extension ViewController {
+    
     private func writeImageToDisk(image: UIImage) {
-        guard let imageData = image.jpegData(compressionQuality: 1) else { return }
-        let nsImageData = NSData(data: imageData)
         
-        guard let documentDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
-        let todayDateFormatter = DateFormatter()
-        todayDateFormatter.dateFormat = "yyyy-MM-dd"
-        let todayDateString = todayDateFormatter.string(from: Date())
-        let imageDirectory = documentDirectory.appendingPathComponent("Images/\(todayDateString)")
-        if !FileManager.default.fileExists(atPath: imageDirectory.absoluteString) {
-            do {
-                try FileManager.default.createDirectory(at: imageDirectory, withIntermediateDirectories: true)
-            } catch {
-                print(error)
-                return
-            }
-        }
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "HH:mm:ss"
-        let imageFileName = dateFormatter.string(from: Date())
-        nsImageData.write(to: imageDirectory.appendingPathComponent("\(imageFileName).jpg"), atomically: true)
+        guard let imageData = image.jpegData(compressionQuality: 1) else { return }
+        guard let imageURL = FilePathUtils.imageURLForCurrentTime() else { return }
+        
+        let nsImageData = NSData(data: imageData)
+        nsImageData.write(to: imageURL, atomically: true)
     }
     
+    
     private func showJumpToSystemSettingsAppToGiveAuthorizationAlert() {
+        
         let alertVC = AuthorizationUtils.getJumpToSystemSettingsAppToGiveAuthorizationAlert()
         self.present(alertVC, animated: true)
     }

@@ -20,11 +20,22 @@ class Camera: NSObject {
     }
 
     private var captureSession : AVCaptureSession!
+    
     var currentCameraPosition : AVCaptureDevice.Position
     var currentVideoInput: AVCaptureInput?
+    
     var photoOutput: AVCapturePhotoOutput?
     var photoHandlerMap = [Int64: PhotoOutputHander]()
+    
     var videoDataOutput: AVCaptureVideoDataOutput?
+    
+    private var assetWriter: AVAssetWriter?
+    private var videoWriterInput: AVAssetWriterInput?
+    
+    private var canStartVideoRecord: Bool = false
+    
+    var cameraOperationQueue = DispatchQueue(label: "com.pandada.HAOCameraOperationQueue")
+    var sampleBufferQueue: DispatchQueue = DispatchQueue(label: "com.pandada.HAOCameraVideoDataQueue")
     
     lazy var cameraPreviewView : HAOCameraPreviewView = HAOCameraPreviewView(frame: .zero)
     var isCapturing: Bool {
@@ -36,7 +47,6 @@ class Camera: NSObject {
     var cameraMode: CameraMode
 
     // 需要一个操作 camera 的队列
-    var cameraOperationQueue = DispatchQueue(label: "com.pandada.HAOCameraOperationQueue")
 
     override init() {
         captureSession = AVCaptureSession.init()
@@ -68,14 +78,20 @@ class Camera: NSObject {
         }
         captureSession.addInput(audioDeviceInput)
 
-        // 2. 添加 output
-        //   2.1 添加 photo output
-        let photoOutput = AVCapturePhotoOutput()
-        guard captureSession.canAddOutput(photoOutput) else { return }
-        captureSession.sessionPreset = cameraConfig.photoPreset
-        captureSession.addOutput(photoOutput)
-        self.photoOutput = photoOutput
+//        // 2. 添加 output
+//        //   2.1 添加 photo output
+//        let photoOutput = AVCapturePhotoOutput()
+//        guard captureSession.canAddOutput(photoOutput) else { return }
+//        captureSession.sessionPreset = cameraConfig.photoPreset
+//        captureSession.addOutput(photoOutput)
+//        self.photoOutput = photoOutput
         
+        //   2.2 添加 video data output
+        let videoDataOutput = AVCaptureVideoDataOutput()
+        guard captureSession.canAddOutput(videoDataOutput) else { return }
+        videoDataOutput.setSampleBufferDelegate(self, queue: self.sampleBufferQueue)
+        captureSession.addOutput(videoDataOutput)
+        self.videoDataOutput = videoDataOutput
 
         // 3. 设置预览视图
         self.cameraPreviewView.videoPreviewLayer.session = captureSession
@@ -176,6 +192,8 @@ extension Camera {
     }
 }
 
+
+
 extension Camera: AVCapturePhotoCaptureDelegate {
     
     // MARK: Monitoring Capture Progress
@@ -218,5 +236,75 @@ extension Camera: AVCapturePhotoCaptureDelegate {
                      didFinishRecordingLivePhotoMovieForEventualFileAt outputFileURL: URL,
                      resolvedSettings: AVCaptureResolvedPhotoSettings) {
         print(output)
+    }
+}
+
+extension Camera {
+    
+    func startVideoRecord() {
+        // 每次开始录制都应该创建一个新的 AVAssetWriter
+        guard let videoFileURL = FilePathUtils.videoURLForCurrentTime() else { return }
+        let outputSettingsAssistant = AVOutputSettingsAssistant(preset: .preset1280x720)
+        let videoSettings = outputSettingsAssistant?.videoSettings
+        setupAssetWriter(outputURL: videoFileURL, videoSettings: videoSettings)
+    }
+    
+    func stopRecording() {
+        guard let assetWriter = assetWriter,
+                let videoWriterInput = videoWriterInput else { return }
+
+        videoWriterInput.markAsFinished()
+        assetWriter.finishWriting {
+            if assetWriter.status == .completed {
+                print("Video saved successfully")
+            } else {
+                print("Error saving video: \(String(describing: assetWriter.error))")
+            }
+        }
+    }
+    
+    private func setupAssetWriter(outputURL: URL, videoSettings: [String: Any]?) {
+        do {
+            assetWriter = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
+        } catch {
+            print("Error creating asset writer: \(error)")
+            return
+        }
+
+        videoWriterInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+        videoWriterInput?.expectsMediaDataInRealTime = true
+
+        if let assetWriter = assetWriter,
+            let videoWriterInput = videoWriterInput,
+            assetWriter.canAdd(videoWriterInput) {
+            assetWriter.add(videoWriterInput)
+        } else {
+            print("Cannot add video input to asset writer")
+        }
+    }
+}
+
+extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate {
+
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        guard let assetWriter = assetWriter, let videoWriterInput = videoWriterInput else { return }
+
+        if assetWriter.status == .unknown {
+            let startTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+            assetWriter.startWriting()
+            assetWriter.startSession(atSourceTime: startTime)
+        }
+
+        if assetWriter.status == .writing {
+            if videoWriterInput.isReadyForMoreMediaData {
+                videoWriterInput.append(sampleBuffer)
+            }
+        }
+    }
+    
+    func captureOutput(_ output: AVCaptureOutput,
+                       didDrop sampleBuffer: CMSampleBuffer,
+                       from connection: AVCaptureConnection) {
+        
     }
 }
