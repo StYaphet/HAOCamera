@@ -50,6 +50,15 @@ struct FilePathUtils {
         todayDateFormatter.dateFormat = "yyyy-MM-dd"
         let todayDateString = todayDateFormatter.string(from: Date())
         let todayImageDirectoryURL = imageDirectoryURL.appendingPathComponent("\(todayDateString)")
+        
+        let fileManager = FileManager.default
+        if !fileManager.fileExists(atPath: todayImageDirectoryURL.absoluteString) {
+            do {
+                try fileManager.createDirectory(at: todayImageDirectoryURL, withIntermediateDirectories: true)
+            } catch {
+                return nil
+            }
+        }
         return todayImageDirectoryURL
     }
     
