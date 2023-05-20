@@ -86,9 +86,6 @@ extension ViewController {
     
     private func setupUI() {
         
-//        self.recordButton.alpha = 0
-//        self.swapButton.alpha = 0
-//        self.previewView.alpha = 0
         self.recordButton.setTitle("Take Picture", for: .normal)
     }
     
@@ -112,18 +109,26 @@ extension ViewController {
     
     @IBAction func recordButtonClicked(_ sender: UIButton) {
         
-        if self.isRecording {
-            cameraModel?.stopRecording()
-            self.isRecording = false
+        guard let cameraModel = cameraModel else { return }
+        
+        if cameraModel.isRecording {
+            cameraModel.stopRecording()
         } else {
-            cameraModel?.startVideoRecord()
-            self.isRecording = true
+            cameraModel.startVideoRecord()
         }
 //        takePicture()
     }
     
     
     @objc func handleTapGestureRecognizer(gesture: UITapGestureRecognizer) {
+        
+//        guard let cameraModel = cameraModel else { return }
+//
+//        if cameraModel.isRecording {
+//            cameraModel.stopRecording()
+//        } else {
+//            cameraModel.startVideoRecord()
+//        }
         
 //        takePicture()
     }

@@ -13,6 +13,10 @@ class Camera: NSObject {
         case canNotAddInput
         case canNotAddOutput
     }
+    
+    enum CameraConfigWriterError: Error {
+        case canNotAddVideoDataInput
+    }
 
     enum CameraMode {
         case video
@@ -32,7 +36,11 @@ class Camera: NSObject {
     private var assetWriter: AVAssetWriter?
     private var videoWriterInput: AVAssetWriterInput?
     
-    private var canStartVideoRecord: Bool = false
+    var isRecording: Bool {
+        return self.isWritingStarted
+    }
+    private var isWritingStarted = false
+    private var lastSampleTime = CMTime.zero
     
     var cameraOperationQueue = DispatchQueue(label: "com.pandada.HAOCameraOperationQueue")
     var sampleBufferQueue: DispatchQueue = DispatchQueue(label: "com.pandada.HAOCameraVideoDataQueue")
@@ -88,6 +96,8 @@ class Camera: NSObject {
         
         //   2.2 添加 video data output
         let videoDataOutput = AVCaptureVideoDataOutput()
+        let videoSettings: [String: Any] = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
+        videoDataOutput.videoSettings = videoSettings
         guard captureSession.canAddOutput(videoDataOutput) else { return }
         videoDataOutput.setSampleBufferDelegate(self, queue: self.sampleBufferQueue)
         captureSession.addOutput(videoDataOutput)
@@ -243,62 +253,95 @@ extension Camera {
     
     func startVideoRecord() {
         // 每次开始录制都应该创建一个新的 AVAssetWriter
-        guard let videoFileURL = FilePathUtils.videoURLForCurrentTime() else { return }
-        let outputSettingsAssistant = AVOutputSettingsAssistant(preset: .preset1280x720)
-        let videoSettings = outputSettingsAssistant?.videoSettings
-        setupAssetWriter(outputURL: videoFileURL, videoSettings: videoSettings)
+        cameraOperationQueue.async {
+            guard let videoFileURL = FilePathUtils.videoURLForCurrentTime() else { return }
+            
+            let videoSettings: [String: Any] = [
+                AVVideoCodecKey: AVVideoCodecType.h264,
+                AVVideoWidthKey: 3840,
+                AVVideoHeightKey: 2160
+            ]
+            
+            do {
+                try self.setupAssetWriter(outputURL: videoFileURL, videoSettings: videoSettings)
+            } catch {
+                print("Setup AssetWriter error: \(error)")
+            }
+            
+            if self.assetWriter?.startWriting() == false {
+                print("Failed to start writing")
+                return
+            }
+            
+            self.isWritingStarted = true
+        }
     }
     
     func stopRecording() {
-        guard let assetWriter = assetWriter,
-                let videoWriterInput = videoWriterInput else { return }
-
-        videoWriterInput.markAsFinished()
-        assetWriter.finishWriting {
+        guard let assetWriter = assetWriter else {
+            return
+        }
+        
+        videoWriterInput?.markAsFinished()
+        
+        assetWriter.finishWriting { [weak self] in
             if assetWriter.status == .completed {
-                print("Video saved successfully")
+                print("Video writing completed")
             } else {
-                print("Error saving video: \(String(describing: assetWriter.error))")
+                print("Video writing failed: \(assetWriter.error?.localizedDescription ?? "")")
             }
+            
+            self?.assetWriter = nil
+            self?.videoWriterInput = nil
+            self?.isWritingStarted = false
+            self?.lastSampleTime = CMTime.zero
         }
     }
     
-    private func setupAssetWriter(outputURL: URL, videoSettings: [String: Any]?) {
+    private func setupAssetWriter(outputURL: URL,
+                                  videoSettings: [String: Any]?) throws {
         do {
-            assetWriter = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
+            assetWriter = try AVAssetWriter(outputURL: outputURL,
+                                            fileType: .mp4)
         } catch {
             print("Error creating asset writer: \(error)")
-            return
+            throw error
         }
 
-        videoWriterInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+        videoWriterInput = AVAssetWriterInput(mediaType: .video,
+                                              outputSettings: videoSettings)
         videoWriterInput?.expectsMediaDataInRealTime = true
 
         if let assetWriter = assetWriter,
-            let videoWriterInput = videoWriterInput,
+           let videoWriterInput = videoWriterInput,
             assetWriter.canAdd(videoWriterInput) {
             assetWriter.add(videoWriterInput)
         } else {
             print("Cannot add video input to asset writer")
+            throw CameraConfigWriterError.canNotAddVideoDataInput
         }
     }
 }
 
 extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate {
 
-    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        guard let assetWriter = assetWriter, let videoWriterInput = videoWriterInput else { return }
-
-        if assetWriter.status == .unknown {
-            let startTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-            assetWriter.startWriting()
-            assetWriter.startSession(atSourceTime: startTime)
+    func captureOutput(_ output: AVCaptureOutput,
+                       didOutput sampleBuffer: CMSampleBuffer,
+                       from connection: AVCaptureConnection) { // 每一帧都回调
+        
+        guard let assetWriter = assetWriter,
+                let videoWriterInput = videoWriterInput,
+                videoWriterInput.isReadyForMoreMediaData else { return }
+        if CMSampleBufferDataIsReady(sampleBuffer) == false { return }
+        if !isWritingStarted  { return}
+        
+        if lastSampleTime == CMTime.zero {
+            lastSampleTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+            assetWriter.startSession(atSourceTime: lastSampleTime)
         }
-
+        
         if assetWriter.status == .writing {
-            if videoWriterInput.isReadyForMoreMediaData {
-                videoWriterInput.append(sampleBuffer)
-            }
+            videoWriterInput.append(sampleBuffer)
         }
     }
     
