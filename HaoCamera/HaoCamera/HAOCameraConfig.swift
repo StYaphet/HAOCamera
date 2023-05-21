@@ -14,4 +14,7 @@ struct CameraConfig {
     
     var preferredFrontCamera: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]
     var preferredBackCamera: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]
+    
+    var videoFrontStabilizationMode: AVCaptureVideoStabilizationMode = .auto
+    var videoBackStabilizationMode: AVCaptureVideoStabilizationMode = .auto
 }

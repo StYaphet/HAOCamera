@@ -55,12 +55,23 @@ class Camera: NSObject {
     var cameraMode: CameraMode
 
     // 需要一个操作 camera 的队列
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
 
     override init() {
+        
         captureSession = AVCaptureSession.init()
         currentCameraPosition = .back
         cameraMode = .photo
+        
+        super.init()
+        
+        addObservers()
     }
+    
+    
 
     func setupCaptureSession(with containerView: UIView) throws {
         defer {
@@ -102,12 +113,27 @@ class Camera: NSObject {
         videoDataOutput.setSampleBufferDelegate(self, queue: self.sampleBufferQueue)
         captureSession.addOutput(videoDataOutput)
         self.videoDataOutput = videoDataOutput
+        
+        configVideoStabilizationModeForCurrentCameraPosition()
 
         // 3. 设置预览视图
         self.cameraPreviewView.videoPreviewLayer.session = captureSession
         self.cameraPreviewView.removeFromSuperview()
         self.cameraPreviewView.frame = containerView.bounds
         containerView.addSubview(self.cameraPreviewView)
+    }
+}
+
+extension Camera {
+    
+    private func addObservers() {
+        NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification,
+                                               object: nil,
+                                               queue: OperationQueue.main) { [weak self] _ in
+            guard let self else { return }
+            guard self.isRecording else { return }
+            self.stopRecording()
+        }
     }
 }
 
@@ -142,6 +168,8 @@ extension Camera {
               captureSession.canAddInput(backVideoDeviceInput) else { return }
         captureSession.addInput(backVideoDeviceInput)
         self.currentVideoInput = backVideoDeviceInput
+        
+        configVideoStabilizationModeForCurrentCameraPosition()
     }
 
     /// 切换到后置摄像头
@@ -164,6 +192,21 @@ extension Camera {
               captureSession.canAddInput(frontVideoDeviceInput) else { return }
         captureSession.addInput(frontVideoDeviceInput)
         self.currentVideoInput = frontVideoDeviceInput
+        
+        configVideoStabilizationModeForCurrentCameraPosition()
+    }
+    
+    private func configVideoStabilizationModeForCurrentCameraPosition() {
+        
+        guard let videoDataOutput = videoDataOutput else { return }
+        guard let connection = videoDataOutput.connection(with: .video) else { return }
+        guard connection.isVideoStabilizationSupported else { return }
+        if currentCameraPosition == .back {
+            connection.preferredVideoStabilizationMode = cameraConfig.videoBackStabilizationMode
+        }
+        if currentCameraPosition == .front {
+            connection.preferredVideoStabilizationMode = cameraConfig.videoFrontStabilizationMode
+        }
     }
 }
 
