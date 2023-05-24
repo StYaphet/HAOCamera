@@ -16,6 +16,7 @@ class Camera: NSObject {
     
     enum CameraConfigWriterError: Error {
         case canNotAddVideoDataInput
+        case canNotAddAudioDataInput
     }
 
     enum CameraMode {
@@ -32,9 +33,11 @@ class Camera: NSObject {
     var photoHandlerMap = [Int64: PhotoOutputHander]()
     
     var videoDataOutput: AVCaptureVideoDataOutput?
+    var audioDataOutput: AVCaptureAudioDataOutput?
     
     private var assetWriter: AVAssetWriter?
     private var videoWriterInput: AVAssetWriterInput?
+    private var audioWriterInput: AVAssetWriterInput?
     
     var isRecording: Bool {
         return self.isWritingStarted
@@ -113,6 +116,14 @@ class Camera: NSObject {
         videoDataOutput.setSampleBufferDelegate(self, queue: self.sampleBufferQueue)
         captureSession.addOutput(videoDataOutput)
         self.videoDataOutput = videoDataOutput
+        
+        
+        //   2.3 添加 audio data output
+        let audioDataOutput = AVCaptureAudioDataOutput()
+        guard captureSession.canAddOutput(audioDataOutput) else { return }
+        audioDataOutput.setSampleBufferDelegate(self, queue: self.sampleBufferQueue)
+        captureSession.addOutput(audioDataOutput)
+        self.audioDataOutput = audioDataOutput
         
         configVideoStabilizationModeForCurrentCameraPosition()
 
@@ -299,14 +310,16 @@ extension Camera {
         cameraOperationQueue.async {
             guard let videoFileURL = FilePathUtils.videoURLForCurrentTime() else { return }
             
-            let videoSettings: [String: Any] = [
-                AVVideoCodecKey: AVVideoCodecType.h264,
-                AVVideoWidthKey: 3840,
-                AVVideoHeightKey: 2160
-            ]
+            let assistant = AVOutputSettingsAssistant(preset: .preset3840x2160)
+            
+            let videoSettings: [String: Any]? = assistant?.videoSettings
+            
+            let audioSettings: [String: Any]? = assistant?.audioSettings
             
             do {
-                try self.setupAssetWriter(outputURL: videoFileURL, videoSettings: videoSettings)
+                try self.setupAssetWriter(outputURL: videoFileURL,
+                                          videoSettings: videoSettings,
+                                          audioSettings: audioSettings)
             } catch {
                 print("Setup AssetWriter error: \(error)")
             }
@@ -326,6 +339,7 @@ extension Camera {
         }
         
         videoWriterInput?.markAsFinished()
+        audioWriterInput?.markAsFinished()
         
         assetWriter.finishWriting { [weak self] in
             if assetWriter.status == .completed {
@@ -342,7 +356,8 @@ extension Camera {
     }
     
     private func setupAssetWriter(outputURL: URL,
-                                  videoSettings: [String: Any]?) throws {
+                                  videoSettings: [String: Any]?,
+                                  audioSettings: [String: Any]?) throws {
         do {
             assetWriter = try AVAssetWriter(outputURL: outputURL,
                                             fileType: .mp4)
@@ -363,20 +378,33 @@ extension Camera {
             print("Cannot add video input to asset writer")
             throw CameraConfigWriterError.canNotAddVideoDataInput
         }
+        
+        // Audio input setup
+        audioWriterInput = AVAssetWriterInput(mediaType: .audio,
+                                              outputSettings: audioSettings)
+        audioWriterInput?.expectsMediaDataInRealTime = true
+        
+        if let assetWriter = assetWriter,
+           let audioWriterInput = audioWriterInput,
+           assetWriter.canAdd(audioWriterInput) {
+            assetWriter.add(audioWriterInput)
+        } else {
+            print("Cannot add audio input to asset writer")
+            throw CameraConfigWriterError.canNotAddAudioDataInput
+        }
     }
 }
 
-extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate {
+extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate,
+                    AVCaptureAudioDataOutputSampleBufferDelegate {
 
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) { // 每一帧都回调
         
-        guard let assetWriter = assetWriter,
-                let videoWriterInput = videoWriterInput,
-                videoWriterInput.isReadyForMoreMediaData else { return }
+        guard let assetWriter = assetWriter else { return }
         if CMSampleBufferDataIsReady(sampleBuffer) == false { return }
-        if !isWritingStarted  { return}
+        if !isWritingStarted  { return }
         
         if lastSampleTime == CMTime.zero {
             lastSampleTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
@@ -384,7 +412,21 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate {
         }
         
         if assetWriter.status == .writing {
-            videoWriterInput.append(sampleBuffer)
+            
+            if output is AVCaptureVideoDataOutput,
+                let videoInput = videoWriterInput,
+                videoInput.isReadyForMoreMediaData {
+                
+                videoInput.append(sampleBuffer)
+                print("video sample presentation timestamp: \(CMSampleBufferGetPresentationTimeStamp(sampleBuffer))")
+                
+            } else if output is AVCaptureAudioDataOutput,
+                        let audioInput = audioWriterInput,
+                        audioInput.isReadyForMoreMediaData {
+                
+                audioInput.append(sampleBuffer)
+                print("audio sample presentation timestamp: \(CMSampleBufferGetPresentationTimeStamp(sampleBuffer))")
+            }
         }
     }
     
