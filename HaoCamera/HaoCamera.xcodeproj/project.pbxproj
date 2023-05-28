@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		C201F62329AA52F0000AE86D /* PhotoOutputHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C201F62229AA52F0000AE86D /* PhotoOutputHandler.swift */; };
-		C201F62529AA546D000AE86D /* HAOCameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C201F62429AA546D000AE86D /* HAOCameraPreviewView.swift */; };
+		C201F62529AA546D000AE86D /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C201F62429AA546D000AE86D /* CameraPreviewView.swift */; };
 		C2193B9F2A1520F800318D48 /* FilePathUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2193B9E2A1520F800318D48 /* FilePathUtils.swift */; };
 		E906C9FF253DE28300A1D40F /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = E906C9FE253DE28300A1D40F /* Camera.swift */; };
 		E96E40AF2568AC8C0057AF0F /* SnapKit in Frameworks */ = {isa = PBXBuildFile; productRef = E96E40AE2568AC8C0057AF0F /* SnapKit */; };
@@ -22,12 +22,12 @@
 		E994926A263850A700858D75 /* RxRelay in Frameworks */ = {isa = PBXBuildFile; productRef = E9949269263850A700858D75 /* RxRelay */; };
 		E994926C263850A700858D75 /* RxSwift in Frameworks */ = {isa = PBXBuildFile; productRef = E994926B263850A700858D75 /* RxSwift */; };
 		E994926E263850A700858D75 /* RxCocoa in Frameworks */ = {isa = PBXBuildFile; productRef = E994926D263850A700858D75 /* RxCocoa */; };
-		E9C18936265B38F200526772 /* HAOCameraConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C18935265B38F200526772 /* HAOCameraConfig.swift */; };
+		E9C18936265B38F200526772 /* CameraConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C18935265B38F200526772 /* CameraConfig.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		C201F62229AA52F0000AE86D /* PhotoOutputHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoOutputHandler.swift; sourceTree = "<group>"; };
-		C201F62429AA546D000AE86D /* HAOCameraPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HAOCameraPreviewView.swift; sourceTree = "<group>"; };
+		C201F62429AA546D000AE86D /* CameraPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreviewView.swift; sourceTree = "<group>"; };
 		C2193B9E2A1520F800318D48 /* FilePathUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePathUtils.swift; sourceTree = "<group>"; };
 		E906C9FE253DE28300A1D40F /* Camera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Camera.swift; sourceTree = "<group>"; };
 		E983A937253D610B00F1872C /* AuthorizationUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthorizationUtils.swift; sourceTree = "<group>"; };
@@ -39,7 +39,7 @@
 		E98981DF253D0E8B002FC5A9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E98981E2253D0E8B002FC5A9 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		E98981E4253D0E8B002FC5A9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		E9C18935265B38F200526772 /* HAOCameraConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HAOCameraConfig.swift; sourceTree = "<group>"; };
+		E9C18935265B38F200526772 /* CameraConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraConfig.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -86,9 +86,9 @@
 				E983A937253D610B00F1872C /* AuthorizationUtils.swift */,
 				E906C9FE253DE28300A1D40F /* Camera.swift */,
 				C2193B9E2A1520F800318D48 /* FilePathUtils.swift */,
-				C201F62429AA546D000AE86D /* HAOCameraPreviewView.swift */,
+				C201F62429AA546D000AE86D /* CameraPreviewView.swift */,
 				C201F62229AA52F0000AE86D /* PhotoOutputHandler.swift */,
-				E9C18935265B38F200526772 /* HAOCameraConfig.swift */,
+				E9C18935265B38F200526772 /* CameraConfig.swift */,
 			);
 			path = HaoCamera;
 			sourceTree = "<group>";
@@ -174,10 +174,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				E906C9FF253DE28300A1D40F /* Camera.swift in Sources */,
-				E9C18936265B38F200526772 /* HAOCameraConfig.swift in Sources */,
+				E9C18936265B38F200526772 /* CameraConfig.swift in Sources */,
 				E983A938253D610B00F1872C /* AuthorizationUtils.swift in Sources */,
 				C2193B9F2A1520F800318D48 /* FilePathUtils.swift in Sources */,
-				C201F62529AA546D000AE86D /* HAOCameraPreviewView.swift in Sources */,
+				C201F62529AA546D000AE86D /* CameraPreviewView.swift in Sources */,
 				C201F62329AA52F0000AE86D /* PhotoOutputHandler.swift in Sources */,
 				E98981DB253D0E8B002FC5A9 /* ViewController.swift in Sources */,
 				E98981D7253D0E8B002FC5A9 /* AppDelegate.swift in Sources */,

@@ -14,7 +14,7 @@ class ViewController: UIViewController {
     var cameraModel: Camera?
     
     @IBOutlet weak var recordButton: UIButton!
-    @IBOutlet weak var previewView: HAOCameraPreviewView!
+    @IBOutlet weak var previewView: CameraPreviewView!
     @IBOutlet weak var swapButton: UIButton!
     
     private var isRecording = false

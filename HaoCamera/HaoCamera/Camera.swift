@@ -43,12 +43,13 @@ class Camera: NSObject {
         return self.isWritingStarted
     }
     private var isWritingStarted = false
-    private var lastSampleTime = CMTime.zero
+    private var firstSampleTime: CMTime = CMTime.invalid
+    private var lastSampleBuffer: CMSampleBuffer?
     
     var cameraOperationQueue = DispatchQueue(label: "com.pandada.HAOCameraOperationQueue")
     var sampleBufferQueue: DispatchQueue = DispatchQueue(label: "com.pandada.HAOCameraVideoDataQueue")
     
-    lazy var cameraPreviewView : HAOCameraPreviewView = HAOCameraPreviewView(frame: .zero)
+    lazy var cameraPreviewView : CameraPreviewView = CameraPreviewView(frame: .zero)
     var isCapturing: Bool {
         return self.captureSession.isRunning
     }
@@ -119,16 +120,15 @@ class Camera: NSObject {
         
         
         //   2.3 添加 audio data output
-        // let audioDataOutput = AVCaptureAudioDataOutput()
-        // guard captureSession.canAddOutput(audioDataOutput) else { return }
-        // audioDataOutput.setSampleBufferDelegate(self, queue: self.sampleBufferQueue)
-        // captureSession.addOutput(audioDataOutput)
-        // self.audioDataOutput = audioDataOutput
+//         let audioDataOutput = AVCaptureAudioDataOutput()
+//         guard captureSession.canAddOutput(audioDataOutput) else { return }
+//         audioDataOutput.setSampleBufferDelegate(self, queue: self.sampleBufferQueue)
+//         captureSession.addOutput(audioDataOutput)
+//         self.audioDataOutput = audioDataOutput
         
-         configVideoStabilizationModeForCurrentCameraPosition()
+        configVideoConnection()
 
         // 3. 设置预览视图
-        self.cameraPreviewView.videoPreviewLayer.session = captureSession
         self.cameraPreviewView.removeFromSuperview()
         self.cameraPreviewView.frame = containerView.bounds
         containerView.addSubview(self.cameraPreviewView)
@@ -180,7 +180,7 @@ extension Camera {
         captureSession.addInput(backVideoDeviceInput)
         self.currentVideoInput = backVideoDeviceInput
         
-        configVideoStabilizationModeForCurrentCameraPosition()
+        configVideoConnection()
     }
 
     /// 切换到后置摄像头
@@ -204,13 +204,18 @@ extension Camera {
         captureSession.addInput(frontVideoDeviceInput)
         self.currentVideoInput = frontVideoDeviceInput
         
-        configVideoStabilizationModeForCurrentCameraPosition()
+        configVideoConnection()
     }
     
-    private func configVideoStabilizationModeForCurrentCameraPosition() {
+    private func configVideoConnection() {
         
         guard let videoDataOutput = videoDataOutput else { return }
         guard let connection = videoDataOutput.connection(with: .video) else { return }
+        configVideoStabilizationMode(for: connection)
+        configVideoOrientation(for: connection)
+    }
+    
+    private func configVideoStabilizationMode(for connection: AVCaptureConnection) {
         guard connection.isVideoStabilizationSupported else { return }
         if currentCameraPosition == .back {
             connection.preferredVideoStabilizationMode = cameraConfig.videoBackStabilizationMode
@@ -218,6 +223,13 @@ extension Camera {
         if currentCameraPosition == .front {
             connection.preferredVideoStabilizationMode = cameraConfig.videoFrontStabilizationMode
         }
+    }
+    
+    private func configVideoOrientation(for connection: AVCaptureConnection) {
+        guard connection.isVideoOrientationSupported else {
+            return
+        }
+        connection.videoOrientation = AVCaptureVideoOrientation.portrait
     }
 }
 
@@ -253,53 +265,6 @@ extension Camera {
             photoOutput.capturePhoto(with: photoSettings,
                                      delegate: photoOutputHandler)
         }
-    }
-}
-
-
-
-extension Camera: AVCapturePhotoCaptureDelegate {
-    
-    // MARK: Monitoring Capture Progress
-    func photoOutput(_ output: AVCapturePhotoOutput,
-                     willBeginCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
-        print(output)
-    }
-    
-    func photoOutput(_ output: AVCapturePhotoOutput,
-                     willCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
-        print(output)
-    }
-    
-    func photoOutput(_ output: AVCapturePhotoOutput,
-                     didCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
-        print(output)
-    }
-    
-    func photoOutput(_ output: AVCapturePhotoOutput,
-                     didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        print(output)
-    }
-    
-    func photoOutput(_ output: AVCapturePhotoOutput,
-                     didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings,
-                     error: Error?) {
-        print(output)
-    }
-    
-    
-    func photoOutput(_ output: AVCapturePhotoOutput,
-                     didFinishProcessingLivePhotoToMovieFileAt outputFileURL: URL,
-                     duration: CMTime, photoDisplayTime: CMTime,
-                     resolvedSettings: AVCaptureResolvedPhotoSettings,
-                     error: Error?) {
-        print(output)
-    }
-    
-    func photoOutput(_ output: AVCapturePhotoOutput,
-                     didFinishRecordingLivePhotoMovieForEventualFileAt outputFileURL: URL,
-                     resolvedSettings: AVCaptureResolvedPhotoSettings) {
-        print(output)
     }
 }
 
@@ -342,6 +307,17 @@ extension Camera {
             self.videoWriterInput?.markAsFinished()
             self.audioWriterInput?.markAsFinished()
             
+            if self.lastSampleBuffer == nil {
+                print("Failed to get the last sample buffer, cancelling writing")
+                assetWriter.cancelWriting()
+                
+                self.cleanupWriter()
+                return
+            }
+            
+            let lastSampleTime = CMSampleBufferGetPresentationTimeStamp(self.lastSampleBuffer!)
+            assetWriter.endSession(atSourceTime: lastSampleTime)
+            
             assetWriter.finishWriting { [weak self] in
                 if assetWriter.status == .completed {
                     print("Video writing completed")
@@ -349,10 +325,7 @@ extension Camera {
                     print("Video writing failed: \(assetWriter.error?.localizedDescription ?? "")")
                 }
                 
-                self?.assetWriter = nil
-                self?.videoWriterInput = nil
-                self?.isWritingStarted = false
-                self?.lastSampleTime = CMTime.zero
+                self?.cleanupWriter()
             }
         }
     }
@@ -395,6 +368,15 @@ extension Camera {
             throw CameraConfigWriterError.canNotAddAudioDataInput
         }
     }
+    
+    private func cleanupWriter() {
+        assetWriter = nil
+        videoWriterInput = nil
+        isWritingStarted = false
+        firstSampleTime = CMTime.invalid
+        lastSampleBuffer = nil
+    }
+    
 }
 
 extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate,
@@ -404,44 +386,46 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) { // 每一帧都回调
         
-        guard let assetWriter = assetWriter else { return }
-        if CMSampleBufferDataIsReady(sampleBuffer) == false { return }
+        if output is AVCaptureVideoDataOutput {
+            let videoOrientation = output.connection(with: .video)?.videoOrientation
+            displayVideoSampleBufferInPreview(sampleBuffer,
+                                              videoOrientation:videoOrientation)
+        }
+        
+        guard let assetWriter = assetWriter else {
+            print("asset writer is nil")
+            return
+            
+        }
+        if CMSampleBufferDataIsReady(sampleBuffer) == false {
+            if output is AVCaptureVideoDataOutput {
+                print("video sample buffer is not ready")
+            }
+            if output is AVCaptureAudioDataOutput {
+                print("audio sample buffer is not ready")
+            }
+            return
+        }
         if !isWritingStarted  { return }
         
-        if lastSampleTime == CMTime.zero {
-            lastSampleTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-            assetWriter.startSession(atSourceTime: lastSampleTime)
+        if firstSampleTime == CMTime.invalid {
+            firstSampleTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+            assetWriter.startSession(atSourceTime: firstSampleTime)
         }
         
         if assetWriter.status == .writing {
-            
             if output is AVCaptureVideoDataOutput,
-                let videoInput = videoWriterInput,
-                videoInput.isReadyForMoreMediaData {
-                
-                // Synchronize video and audio tracks by using the same presentation timestamp
-                let videoSampleTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-                let adjustedSampleBuffer = adjustSampleBuffer(sampleBuffer, with: videoSampleTime)
-                
-                videoInput.append(adjustedSampleBuffer)
-                print("video sample appended")
-                
+               let videoInput = videoWriterInput,
+               videoInput.isReadyForMoreMediaData {
+                videoInput.append(sampleBuffer)
+                lastSampleBuffer = sampleBuffer
             } else if output is AVCaptureAudioDataOutput,
-                        let audioInput = audioWriterInput,
-                        audioInput.isReadyForMoreMediaData {
-                
-                // Synchronize video and audio tracks by using the same presentation timestamp
-                let audioSampleTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-                let adjustedSampleBuffer = adjustSampleBuffer(sampleBuffer, with: audioSampleTime)
-                
-                audioInput.append(adjustedSampleBuffer)
-                print("audio sample appended")
+                      let audioInput = audioWriterInput,
+                      audioInput.isReadyForMoreMediaData {
+                audioInput.append(sampleBuffer)
             }
+            
         }
-    }
-
-    private func adjustSampleBuffer(_ sampleBuffer: CMSampleBuffer, with presentationTimeStamp: CMTime) -> CMSampleBuffer {
-        return sampleBuffer
     }
     
     func captureOutput(_ output: AVCaptureOutput,
@@ -450,4 +434,21 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate,
                         let videoSampleTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
         print("drop video sample: \(videoSampleTime)")
     }
+    
+    private func displayVideoSampleBufferInPreview(_ sampleBuffer: CMSampleBuffer,
+                                                   videoOrientation: AVCaptureVideoOrientation?) {
+        
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        
+        // 创建 CIImage 对象
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        // 将 CIImage 转换为 CGImage
+        let context = CIContext()
+        guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return }
+        DispatchQueue.main.async {
+            self.cameraPreviewView.layer.contents = cgImage
+        }
+    }
+    
+    
 }
