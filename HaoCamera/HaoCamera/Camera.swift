@@ -120,11 +120,11 @@ class Camera: NSObject {
         
         
         //   2.3 添加 audio data output
-//         let audioDataOutput = AVCaptureAudioDataOutput()
-//         guard captureSession.canAddOutput(audioDataOutput) else { return }
-//         audioDataOutput.setSampleBufferDelegate(self, queue: self.sampleBufferQueue)
-//         captureSession.addOutput(audioDataOutput)
-//         self.audioDataOutput = audioDataOutput
+         let audioDataOutput = AVCaptureAudioDataOutput()
+         guard captureSession.canAddOutput(audioDataOutput) else { return }
+         audioDataOutput.setSampleBufferDelegate(self, queue: self.sampleBufferQueue)
+         captureSession.addOutput(audioDataOutput)
+         self.audioDataOutput = audioDataOutput
         
         configVideoConnection()
 
