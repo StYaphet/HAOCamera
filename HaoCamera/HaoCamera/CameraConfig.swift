@@ -9,7 +9,7 @@ import Foundation
 import AVFoundation
 
 struct CameraConfig {
-    var videoPreset: AVCaptureSession.Preset = .high
+    var videoPreset: AVCaptureSession.Preset = .hd4K3840x2160
     var photoPreset: AVCaptureSession.Preset = .photo
     
     var preferredFrontCamera: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]

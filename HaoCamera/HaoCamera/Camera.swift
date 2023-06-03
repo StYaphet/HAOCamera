@@ -82,6 +82,10 @@ class Camera: NSObject {
             captureSession.commitConfiguration()
         }
         captureSession.beginConfiguration()
+        
+        if captureSession.canSetSessionPreset(.hd4K3840x2160) {
+            captureSession.sessionPreset = .hd4K3840x2160
+        }
 
         // 1. 添加 input
         //   1.1根据相机位置添加 video input
@@ -111,7 +115,9 @@ class Camera: NSObject {
         
         //   2.2 添加 video data output
         let videoDataOutput = AVCaptureVideoDataOutput()
-        let videoSettings: [String: Any] = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
+        let videoSettings: [String: Any] = [
+            kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)
+        ]
         videoDataOutput.videoSettings = videoSettings
         guard captureSession.canAddOutput(videoDataOutput) else { return }
         videoDataOutput.setSampleBufferDelegate(self, queue: self.sampleBufferQueue)
@@ -183,7 +189,7 @@ extension Camera {
         configVideoConnection()
     }
 
-    /// 切换到后置摄像头
+    /// 切换到前置摄像头
     func changeToFrontCameraInput() {
         defer {
             captureSession.commitConfiguration()
@@ -198,6 +204,30 @@ extension Camera {
                                                                            mediaType: .video,
                                                                            position: .front)
         guard let firstDevice: AVCaptureDevice = deviceDiscoverySession.devices.first else { return }
+        
+        // 在这里可以筛选或选择特定的分辨率
+//        for format in firstDevice.formats {
+//            let description = format.formatDescription
+//            let dimensions = CMVideoFormatDescriptionGetDimensions(description)
+//            let width = Int(dimensions.width)
+//            let height = Int(dimensions.height)
+//            print("selected format resolution: \(width)x\(height)")
+//            // 在这里可以筛选或选择特定的分辨率
+//            // 设置摄像头的分辨率
+//            // 在这里可以筛选或选择特定的分辨率
+//            // 设置摄像头的分辨率
+//            if width == 3840 && height == 2160 {
+//                do {
+//                    try firstDevice.lockForConfiguration()
+//                    firstDevice.activeFormat = format
+//                    firstDevice.unlockForConfiguration()
+//                    break
+//                } catch {
+//                    print("set video device format failed!")
+//                }
+//            }
+//        }
+        
         guard let frontVideoDeviceInput =
                 try? AVCaptureDeviceInput(device: firstDevice),
               captureSession.canAddInput(frontVideoDeviceInput) else { return }
@@ -275,16 +305,25 @@ extension Camera {
         cameraOperationQueue.async {
             guard let videoFileURL = FilePathUtils.videoURLForCurrentTime() else { return }
             
-            let assistant = AVOutputSettingsAssistant(preset: .hevc3840x2160)
+            guard let videoDataOutput = self.videoDataOutput else {
+                print("Could not create AVAssetWriter, cause videoDataOuput is nil")
+                return
+            }
+            guard let audioDataOutput = self.audioDataOutput else {
+                print("Could not create AVAssetWriter, cause audioDataOutput is nil")
+                return
+            }
             
-            let videoSettings: [String: Any]? = assistant?.videoSettings
+            let fileType = AVFileType.mp4
             
-            let audioSettings: [String: Any]? = assistant?.audioSettings
+            let videoSettings = videoDataOutput.recommendedVideoSettingsForAssetWriter(writingTo: fileType)
+            let audioSettings = audioDataOutput.recommendedAudioSettingsForAssetWriter(writingTo: fileType)
             
             do {
                 try self.setupAssetWriter(outputURL: videoFileURL,
                                           videoSettings: videoSettings,
-                                          audioSettings: audioSettings)
+                                          audioSettings: audioSettings,
+                                          fileType: fileType)
             } catch {
                 print("Setup AssetWriter error: \(error)")
             }
@@ -300,6 +339,7 @@ extension Camera {
     
     func stopRecording() {
         guard let assetWriter = assetWriter else {
+            print("asset writer is nil")
             return
         }
         cameraOperationQueue.async {
@@ -332,7 +372,8 @@ extension Camera {
     
     private func setupAssetWriter(outputURL: URL,
                                   videoSettings: [String: Any]?,
-                                  audioSettings: [String: Any]?) throws {
+                                  audioSettings: [String: Any]?,
+                                  fileType:AVFileType) throws {
         do {
             assetWriter = try AVAssetWriter(outputURL: outputURL,
                                             fileType: .mp4)
@@ -390,10 +431,20 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate,
             let videoOrientation = output.connection(with: .video)?.videoOrientation
             displayVideoSampleBufferInPreview(sampleBuffer,
                                               videoOrientation:videoOrientation)
+            if let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) {
+                let mediaSubType = CMFormatDescriptionGetMediaSubType(formatDescription)
+                if mediaSubType == kCVPixelFormatType_32BGRA {
+                    // 这是一个BGRA格式的视频帧
+                    // 可以进一步获取分辨率信息
+                    let dimensions = CMVideoFormatDescriptionGetDimensions(formatDescription)
+                    let width = Int(dimensions.width)
+                    let height = Int(dimensions.height)
+                    print("分辨率：\(width) x \(height)")
+                }
+            }
         }
         
         guard let assetWriter = assetWriter else {
-            print("asset writer is nil")
             return
             
         }
@@ -417,6 +468,8 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate,
             if output is AVCaptureVideoDataOutput,
                let videoInput = videoWriterInput,
                videoInput.isReadyForMoreMediaData {
+                
+                
                 videoInput.append(sampleBuffer)
                 lastSampleBuffer = sampleBuffer
             } else if output is AVCaptureAudioDataOutput,
