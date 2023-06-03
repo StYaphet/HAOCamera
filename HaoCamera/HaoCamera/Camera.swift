@@ -42,7 +42,11 @@ class Camera: NSObject {
     var isRecording: Bool {
         return self.isWritingStarted
     }
-    private var isWritingStarted = false
+    private var isWritingStarted = false {
+        didSet {
+            self.triggerRecordingFeedback()
+        }
+    }
     private var firstSampleTime: CMTime = CMTime.invalid
     private var lastSampleBuffer: CMSampleBuffer?
     
@@ -58,25 +62,31 @@ class Camera: NSObject {
 
     var cameraMode: CameraMode
 
-    // 需要一个操作 camera 的队列
-    
+    var writingIndicatorTimer: Timer?
+    var recordingFeedbackGenerator: UIImpactFeedbackGenerator?
+    var recordResultNotificationFeedbackGenerator: UINotificationFeedbackGenerator?
+
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
+    
+    convenience override init() {
+        self.init(CameraConfig())
+    }
 
-    override init() {
+    init(_ config: CameraConfig) {
         
         captureSession = AVCaptureSession.init()
         currentCameraPosition = .back
         cameraMode = .photo
+        cameraConfig = config
         
         super.init()
         
+        setupFeedbackGenerators()
         addObservers()
     }
     
-    
-
     func setupCaptureSession(with containerView: UIView) throws {
         defer {
             captureSession.commitConfiguration()
@@ -150,6 +160,45 @@ extension Camera {
             guard let self else { return }
             guard self.isRecording else { return }
             self.stopRecording()
+        }
+    }
+}
+
+// MARK: - Feedbacks
+extension Camera {
+    
+    private func enableFeedbackGenerator() {
+        if #available(iOS 13.0, *) {
+            if !AVAudioSession.sharedInstance().allowHapticsAndSystemSoundsDuringRecording {
+                do {
+                    try AVAudioSession.sharedInstance().setAllowHapticsAndSystemSoundsDuringRecording(true)
+                } catch {
+                    print("setAllowHapticsAndSystemSoundsDuringRecording fail")
+                }
+            }
+        }
+    }
+    
+    private func setupFeedbackGenerators() {
+        recordingFeedbackGenerator = UIImpactFeedbackGenerator(style: .soft)
+        recordingFeedbackGenerator?.prepare()
+        recordResultNotificationFeedbackGenerator = UINotificationFeedbackGenerator()
+        recordResultNotificationFeedbackGenerator?.prepare()
+    }
+    
+    private func triggerRecordingFeedback() {
+        if isWritingStarted {
+            print("Start video writing...")
+            DispatchQueue.main.async {
+                self.writingIndicatorTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true, block: { [weak self] _ in
+                    guard let self else { return }
+                    self.recordingFeedbackGenerator?.impactOccurred()
+                })
+                self.writingIndicatorTimer?.fire()
+            }
+        } else {
+            writingIndicatorTimer?.invalidate()
+            writingIndicatorTimer = nil
         }
     }
 }
@@ -270,6 +319,7 @@ extension Camera {
     func startCapture() {
         self.cameraOperationQueue.async() {
             self.captureSession.startRunning()
+            self.enableFeedbackGenerator()
         }
     }
 
@@ -359,13 +409,16 @@ extension Camera {
             assetWriter.endSession(atSourceTime: lastSampleTime)
             
             assetWriter.finishWriting { [weak self] in
+                guard let self else { return }
                 if assetWriter.status == .completed {
                     print("Video writing completed")
+                    self.recordResultNotificationFeedbackGenerator?.notificationOccurred(.error)
                 } else {
                     print("Video writing failed: \(assetWriter.error?.localizedDescription ?? "")")
+                    self.recordResultNotificationFeedbackGenerator?.notificationOccurred(.success)
                 }
                 
-                self?.cleanupWriter()
+                self.cleanupWriter()
             }
         }
     }
@@ -431,17 +484,17 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate,
             let videoOrientation = output.connection(with: .video)?.videoOrientation
             displayVideoSampleBufferInPreview(sampleBuffer,
                                               videoOrientation:videoOrientation)
-            if let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) {
-                let mediaSubType = CMFormatDescriptionGetMediaSubType(formatDescription)
-                if mediaSubType == kCVPixelFormatType_32BGRA {
-                    // 这是一个BGRA格式的视频帧
-                    // 可以进一步获取分辨率信息
-                    let dimensions = CMVideoFormatDescriptionGetDimensions(formatDescription)
-                    let width = Int(dimensions.width)
-                    let height = Int(dimensions.height)
-                    print("分辨率：\(width) x \(height)")
-                }
-            }
+//            if let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) {
+//                let mediaSubType = CMFormatDescriptionGetMediaSubType(formatDescription)
+//                if mediaSubType == kCVPixelFormatType_32BGRA {
+//                    // 这是一个BGRA格式的视频帧
+//                    // 可以进一步获取分辨率信息
+//                    let dimensions = CMVideoFormatDescriptionGetDimensions(formatDescription)
+//                    let width = Int(dimensions.width)
+//                    let height = Int(dimensions.height)
+//                    print("分辨率：\(width) x \(height)")
+//                }
+//            }
         }
         
         guard let assetWriter = assetWriter else {
@@ -491,6 +544,7 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate,
     private func displayVideoSampleBufferInPreview(_ sampleBuffer: CMSampleBuffer,
                                                    videoOrientation: AVCaptureVideoOrientation?) {
         
+        if self.cameraConfig.notDisplayPreview { return }
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         
         // 创建 CIImage 对象

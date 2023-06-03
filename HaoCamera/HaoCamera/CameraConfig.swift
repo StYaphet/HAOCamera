@@ -17,4 +17,6 @@ struct CameraConfig {
     
     var videoFrontStabilizationMode: AVCaptureVideoStabilizationMode = .standard
     var videoBackStabilizationMode: AVCaptureVideoStabilizationMode = .standard
+    
+    var notDisplayPreview = false
 }
