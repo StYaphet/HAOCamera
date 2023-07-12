@@ -27,7 +27,7 @@ class Camera: NSObject {
     private var captureSession : AVCaptureSession!
     
     var currentCameraPosition : AVCaptureDevice.Position
-    var currentVideoInput: AVCaptureInput?
+    var currentVideoInput: AVCaptureDeviceInput?
     
     var photoOutput: AVCapturePhotoOutput?
     var photoHandlerMap = [Int64: PhotoOutputHander]()
@@ -78,7 +78,7 @@ class Camera: NSObject {
         
         captureSession = AVCaptureSession.init()
         currentCameraPosition = .back
-        cameraMode = .photo
+        cameraMode = .video
         cameraConfig = config
         
         super.init()
@@ -234,6 +234,23 @@ extension Camera {
               captureSession.canAddInput(backVideoDeviceInput) else { return }
         captureSession.addInput(backVideoDeviceInput)
         self.currentVideoInput = backVideoDeviceInput
+        
+        let format = firstDevice.formats[52]
+        do {
+            try firstDevice.lockForConfiguration()
+            
+            // 设置帧率
+            firstDevice.activeFormat = format
+            let desiredFrameRate = CMTime(value: 1, timescale: 60)  // 设置为 60 帧/秒
+            firstDevice.activeVideoMinFrameDuration = desiredFrameRate
+            firstDevice.activeVideoMaxFrameDuration = desiredFrameRate
+            
+            firstDevice.unlockForConfiguration()
+            
+            print("HAO_DEBUG: \(format)")
+        } catch {
+            print("HAO_DEBUG: set video device format failed!")
+        }
         
         configVideoConnection()
     }
@@ -537,7 +554,7 @@ extension Camera: AVCaptureVideoDataOutputSampleBufferDelegate,
     func captureOutput(_ output: AVCaptureOutput,
                        didDrop sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
-                        let videoSampleTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        let videoSampleTime = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
         print("drop video sample: \(videoSampleTime)")
     }
     

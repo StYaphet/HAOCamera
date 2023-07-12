@@ -148,7 +148,7 @@ extension ViewController {
                 AuthorizationUtils.microphoneAuthorized else {
             return false
         }
-        let cameraConfig = CameraConfig(notDisplayPreview: false)
+        let cameraConfig = CameraConfig(notDisplayPreview: true)
         cameraModel = Camera(cameraConfig)
         guard let cameraModel = self.cameraModel else {
             return false
